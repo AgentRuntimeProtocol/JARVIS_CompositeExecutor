@@ -1,0 +1,8 @@
+{
+  "node_run_id": "node_run_demo",
+  "run_id": "run_demo",
+  "node_type_ref": { "node_type_id": "composite.demo", "version": "0.1.0" },
+  "inputs": { "goal": "Hello from the template Composite Executor" },
+  "coordinator_endpoint": { "url": "http://127.0.0.1:8081" }
+}
+
