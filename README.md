@@ -1,17 +1,23 @@
-# ARP Template Composite Executor
+# JARVIS Composite Executor
 
-Use this repo as a starting point for building an **ARP compliant Composite Executor** service.
+First-party OSS reference implementation of the **ARP Composite Executor** service.
 
-This minimal template implements the Composite Executor API using only the SDK packages:
-`arp-standard-server`, `arp-standard-model`, and `arp-standard-client`.
+This reference implementation uses the ARP SDK packages plus shared helpers:
+`arp-standard-server`, `arp-standard-model`, `arp-standard-client`, `arp-llm`, and `arp-auth`.
 
-Composite execution internals (decomposition/mapping/evaluation) are intentionally implementation-defined. This template keeps the protocol surface small so you can plug in your preferred framework while preserving spec-aligned request/response envelopes.
+Composite execution internals (decomposition/mapping/evaluation) are intentionally implementation-defined. JARVIS keeps the protocol surface small so you can plug in your preferred framework while preserving spec-aligned request/response envelopes.
 
 Implements: ARP Standard `spec/v1` Composite Executor API (contract: `ARP_Standard/spec/v1/openapi/composite-executor.openapi.yaml`).
 
+This repo’s default design is LLM-driven:
+- **Planner**: decompose a composite NodeRun into bounded subtasks (LLM).
+- **Selector**: call Selection Service to get bounded candidate sets per subtask.
+- **Binder**: pick one candidate deterministically (v0: first candidate).
+- **Arg-gen**: generate concrete `inputs` for the chosen node type (LLM) using Node Registry canonical schemas.
+
 ## Requirements
 
-- Python >= 3.10
+- Python >= 3.11
 
 ## Install
 
@@ -21,7 +27,7 @@ python3 -m pip install -e .
 
 ## Local configuration (optional)
 
-For local dev convenience, copy the template env file:
+For local dev convenience, copy the example env file:
 
 ```bash
 cp .env.example .env.local
@@ -34,8 +40,8 @@ cp .env.example .env.local
 - Composite Executor listens on `http://127.0.0.1:8083` by default.
 
 ```bash
-python3 -m pip install -e '.[run]'
-python3 -m arp_template_composite_executor
+python3 -m pip install -e .
+python3 -m jarvis_composite_executor
 ```
 
 > [!TIP]
@@ -46,15 +52,21 @@ python3 -m arp_template_composite_executor
 To build your own composite executor, fork this repository and replace the composite engine while preserving request/response semantics.
 
 If all you need is to change composite behavior, edit:
-- `src/arp_template_composite_executor/executor.py`
+- `src/jarvis_composite_executor/engine/driver.py`
 
 Outgoing client wrapper (composite -> coordinator):
-- `src/arp_template_composite_executor/run_coordinator_client.py`
+- `src/jarvis_composite_executor/clients/run_coordinator.py`
 
 ### Default behavior
 
-- `begin_composite_node_run` always returns `accepted=true` with a placeholder message.
-- No background execution is performed by default (template is protocol-surface-first).
+- `begin_composite_node_run` returns `accepted=true` and starts a background driver.
+- Planner (LLM) decomposes the composite goal into bounded subtasks.
+- For each subtask:
+  - Selection Service returns a bounded candidate set (top-K).
+  - CE binds deterministically to the first candidate (v0).
+  - CE fetches canonical `input_schema` from Node Registry and runs arg-gen (LLM) to produce `inputs`.
+  - CE creates the child NodeRun via Run Coordinator and waits for completion.
+- CE reports evaluation and completes the composite (v0: fail-fast if any child fails).
 
 ### Notes on API surface
 
@@ -73,6 +85,12 @@ CLI flags:
 - `--host` (default `127.0.0.1`)
 - `--port` (default `8083`)
 - `--reload` (dev only)
+
+Env vars (selected):
+- `JARVIS_SELECTION_URL` (required)
+- `JARVIS_NODE_REGISTRY_URL` (required; canonical NodeType schemas for arg-gen)
+- `ARP_LLM_PROFILE` + provider-specific vars (required; planner + arg-gen)
+- `JARVIS_COMPOSITE_MAX_STEPS` + `JARVIS_COMPOSITE_MAX_DEPTH` (required defaults for planning bounds)
 
 ## Validate conformance (`arp-conformance`)
 
@@ -93,11 +111,18 @@ arp-conformance check composite-executor --url http://127.0.0.1:8083 --tier surf
 
 ## Authentication
 
-For out-of-the-box usability, this template defaults to auth-disabled unless you set `ARP_AUTH_MODE` or `ARP_AUTH_PROFILE`.
+Auth is enabled by default (JWT). To disable for local dev, set `ARP_AUTH_PROFILE=dev-insecure`.
 
-To enable JWT auth, set either:
-- `ARP_AUTH_PROFILE=dev-secure-keycloak` + `ARP_AUTH_SERVICE_ID=<audience>`
-- or `ARP_AUTH_MODE=required` with `ARP_AUTH_ISSUER` and `ARP_AUTH_AUDIENCE`
+To enable local Keycloak defaults, set:
+- `ARP_AUTH_PROFILE=dev-secure-keycloak`
+- `ARP_AUTH_AUDIENCE=arp-composite-executor`
+- `ARP_AUTH_ISSUER=http://localhost:8080/realms/arp-dev`
+
+Outbound service-to-service calls (Selection / Node Registry) should use STS token exchange (no static bearer tokens).
+Configure the STS client credentials with:
+- `ARP_AUTH_CLIENT_ID`
+- `ARP_AUTH_CLIENT_SECRET`
+- `ARP_AUTH_TOKEN_ENDPOINT`
 
 ## Upgrading
 

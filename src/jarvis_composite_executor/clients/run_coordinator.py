@@ -32,9 +32,8 @@ T = TypeVar("T")
 
 
 class RunCoordinatorGatewayClient:
-    """Outgoing Run Coordinator client wrapper for the Composite Executor template."""
+    """Outgoing Run Coordinator client wrapper for the Composite Executor."""
 
-    # Core method - API surface and main extension points
     def __init__(
         self,
         *,
@@ -45,7 +44,6 @@ class RunCoordinatorGatewayClient:
         self.base_url = base_url
         self._client = client or RunCoordinatorClient(base_url=base_url, bearer_token=bearer_token)
 
-    # Core methods - outgoing Run Coordinator calls
     async def create_node_runs(self, body: NodeRunsCreateRequest) -> NodeRunsCreateResponse:
         return await self._call(
             self._client.create_node_runs,
@@ -96,7 +94,6 @@ class RunCoordinatorGatewayClient:
             RunCoordinatorVersionRequest(),
         )
 
-    # Helpers (internal): implementation detail for the template.
     async def _call(self, fn: Callable[[Any], T], request: Any) -> T:
         try:
             return await asyncio.to_thread(fn, request)
