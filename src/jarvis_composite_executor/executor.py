@@ -43,7 +43,7 @@ class CompositeExecutor(BaseCompositeExecutorServer):
     def __init__(
         self,
         *,
-        service_name: str = "jarvis-composite-executor",
+        service_name: str = "arp-jarvis-composite-executor",
         service_version: str = __version__,
         selection_service: SelectionClientLike | None = None,
         node_registry: NodeRegistryClientLike | None = None,
