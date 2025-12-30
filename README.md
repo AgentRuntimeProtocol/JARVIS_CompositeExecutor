@@ -68,6 +68,23 @@ Outgoing client wrapper (composite -> coordinator):
   - CE creates the child NodeRun via Run Coordinator and waits for completion.
 - CE reports evaluation and completes the composite (v0: fail-fast if any child fails).
 
+### Extensions
+
+This service participates in several cross-component `extensions` conventions:
+
+When creating child NodeRuns via Run Coordinator (`create_node_runs`), CE sets:
+- `NodeRunCreateSpec.candidate_set_id` and `NodeRunCreateSpec.binding_decision` (Selection linkage + chosen candidate)
+- `NodeRunCreateSpec.idempotency_key` (optional; enables idempotent child creation)
+- `NodeRunCreateSpec.constraints` (propagates constraints downstream)
+
+Run Coordinator persists these values into `NodeRun.extensions` so they are queryable later.
+
+When calling Selection Service (`generate_candidate_set`), CE may attach optional context in `SubtaskSpec.extensions`:
+- `jarvis.subtask.notes`
+- `jarvis.root_goal`
+
+Full cross-stack list: `Business_Docs/JARVIS/Extensions.md`.
+
 ### Notes on API surface
 
 - In `spec/v1`, the Composite Executor API is intentionally minimal (begin + health/version).
