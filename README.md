@@ -83,7 +83,7 @@ When calling Selection Service (`generate_candidate_set`), CE may attach optiona
 - `jarvis.subtask.notes`
 - `jarvis.root_goal`
 
-Full cross-stack list: `Business_Docs/JARVIS/Extensions.md`.
+Full cross-stack list: `https://github.com/AgentRuntimeProtocol/BusinessDocs/blob/main/Business_Docs/JARVIS/Extensions.md`.
 
 ### Notes on API surface
 
