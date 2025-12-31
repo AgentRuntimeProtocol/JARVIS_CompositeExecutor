@@ -40,6 +40,9 @@ def test_main_no_reload(monkeypatch) -> None:
     monkeypatch.setenv("ARP_AUTH_CLIENT_SECRET", "secret")
     monkeypatch.setenv("ARP_AUTH_TOKEN_ENDPOINT", "http://auth.local/token")
     monkeypatch.setenv("ARP_AUTH_MODE", "disabled")
+    monkeypatch.setenv("ARP_LLM_PROFILE", "openai")
+    monkeypatch.setenv("ARP_LLM_CHAT_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("ARP_LLM_API_KEY", "test")
 
     import jarvis_composite_executor.app as app_module
 

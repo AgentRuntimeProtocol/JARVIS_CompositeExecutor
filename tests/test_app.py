@@ -12,6 +12,9 @@ def _load_app_module(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("ARP_AUTH_CLIENT_SECRET", "secret")
     monkeypatch.setenv("ARP_AUTH_TOKEN_ENDPOINT", "http://auth.local/token")
     monkeypatch.setenv("ARP_AUTH_MODE", "disabled")
+    monkeypatch.setenv("ARP_LLM_PROFILE", "openai")
+    monkeypatch.setenv("ARP_LLM_CHAT_MODEL", "gpt-4.1-mini")
+    monkeypatch.setenv("ARP_LLM_API_KEY", "test")
     import jarvis_composite_executor.app as app_module
 
     return importlib.reload(app_module)
@@ -54,7 +57,7 @@ def test_create_app_wires_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     recorded: dict[str, object] = {}
 
     monkeypatch.setattr(app_module, "auth_client_from_env_optional", lambda: sentinel_auth)
-    monkeypatch.setattr(app_module, "load_chat_model_from_env_or_dev_mock", lambda: sentinel_llm)
+    monkeypatch.setattr(app_module, "load_chat_model_from_env", lambda: sentinel_llm)
     monkeypatch.setattr(app_module, "auth_settings_from_env_or_dev_secure", lambda: sentinel_settings)
 
     def fake_selection(*, base_url: str, auth_client: object, audience: str | None) -> object:

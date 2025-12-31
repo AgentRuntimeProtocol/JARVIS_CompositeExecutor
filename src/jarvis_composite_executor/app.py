@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-from arp_llm.settings import load_chat_model_from_env_or_dev_mock
+from arp_llm.settings import load_chat_model_from_env
 
 from .auth import auth_client_from_env_optional, auth_settings_from_env_or_dev_secure
 from .clients import NodeRegistryGatewayClient, SelectionGatewayClient
@@ -29,7 +29,7 @@ def create_app():
         audience=_audience_from_env("JARVIS_NODE_REGISTRY_AUDIENCE"),
     )
 
-    llm = load_chat_model_from_env_or_dev_mock()
+    llm = load_chat_model_from_env()
     config = load_composite_config_from_env()
 
     return CompositeExecutor(
