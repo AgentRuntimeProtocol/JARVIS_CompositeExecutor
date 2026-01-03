@@ -26,7 +26,7 @@ def test_begin_composite_node_run_accepts() -> None:
 
     node_type = make_node_type(
         node_type_id="jarvis.core.echo",
-        version="0.3.3",
+        version="0.3.5",
         input_schema={
             "type": "object",
             "properties": {"text": {"type": "string"}},
@@ -34,7 +34,7 @@ def test_begin_composite_node_run_accepts() -> None:
             "additionalProperties": False,
         },
     )
-    candidate_set = make_candidate_set(candidate=NodeTypeRef(node_type_id="jarvis.core.echo", version="0.3.3"))
+    candidate_set = make_candidate_set(candidate=NodeTypeRef(node_type_id="jarvis.core.echo", version="0.3.5"))
     selection = FakeSelection(candidate_set)
     node_registry = FakeNodeRegistry(node_type)
     run_coordinator = FakeRunCoordinator()
@@ -59,7 +59,7 @@ def test_begin_composite_node_run_accepts() -> None:
         body=CompositeBeginRequest(
             run_id="run_1",
             node_run_id="node_run_1",
-            node_type_ref=NodeTypeRef(node_type_id="jarvis.composite.planner", version="0.3.3"),
+            node_type_ref=NodeTypeRef(node_type_id="jarvis.composite.planner", version="0.3.5"),
             inputs={"goal": "test"},
             coordinator_endpoint=EndpointLocator.model_validate("http://127.0.0.1:8081"),
         )

@@ -80,7 +80,7 @@ def _request(node_run_id: str = "node") -> CompositeBeginRequest:
     return CompositeBeginRequest(
         run_id="run",
         node_run_id=node_run_id,
-        node_type_ref=NodeTypeRef(node_type_id="jarvis.composite.planner", version="0.3.3"),
+        node_type_ref=NodeTypeRef(node_type_id="jarvis.composite.planner", version="0.3.5"),
         inputs={"goal": "test"},
         coordinator_endpoint=EndpointLocator.model_validate("http://127.0.0.1:8081"),
     )

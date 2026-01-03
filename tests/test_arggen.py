@@ -12,7 +12,7 @@ def test_arggen_strips_nulls_and_validates() -> None:
 
     node_type = NodeType(
         node_type_id="jarvis.core.echo",
-        version="0.3.3",
+        version="0.3.5",
         kind=NodeKind.atomic,
         description="Echo text",
         input_schema={

@@ -116,6 +116,12 @@ class CompositeExecutor(BaseCompositeExecutorServer):
           - Validate constraints before accepting.
         """
         self._ensure_ready()
+        logger.info(
+            "Composite assignment received (run_id=%s, node_run_id=%s, node_type_id=%s)",
+            request.body.run_id,
+            request.body.node_run_id,
+            request.body.node_type_ref.node_type_id,
+        )
         self._start_assignment(request.body)
         return CompositeBeginResponse(
             accepted=True,
@@ -137,6 +143,7 @@ class CompositeExecutor(BaseCompositeExecutorServer):
         task = self._tasks.pop(node_run_id, None)
         if task is not None:
             task.cancel()
+            logger.info("Composite cancel requested (node_run_id=%s)", node_run_id)
         return None
 
     def _start_assignment(self, request: CompositeBeginRequest) -> None:
@@ -161,6 +168,7 @@ class CompositeExecutor(BaseCompositeExecutorServer):
         llm = self._llm
         config = self._config
         if selection is None or node_registry is None or llm is None or config is None:
+            logger.error("Composite assignment missing dependencies (node_run_id=%s)", node_run_id)
             return
         run_coordinator = (
             self._run_coordinator_factory(request)
@@ -181,6 +189,7 @@ class CompositeExecutor(BaseCompositeExecutorServer):
                 canceled=self._canceled,
             )
             await _maybe_await(self._semaphore, driver.run(request))
+            logger.info("Composite assignment completed (node_run_id=%s)", node_run_id)
         except asyncio.CancelledError:
             try:
                 await run_coordinator.complete_node_run(
@@ -203,24 +212,28 @@ class CompositeExecutor(BaseCompositeExecutorServer):
 
     def _ensure_ready(self) -> None:
         if self._selection_service is None:
+            logger.error("Selection Service is not configured for Composite Executor")
             raise ArpServerError(
                 code="selection_service_missing",
                 message="Selection Service is required for composite execution",
                 status_code=503,
             )
         if self._node_registry is None:
+            logger.error("Node Registry is not configured for Composite Executor")
             raise ArpServerError(
                 code="node_registry_missing",
                 message="Node Registry is required for composite execution",
                 status_code=503,
             )
         if self._llm is None:
+            logger.error("LLM is not configured for Composite Executor")
             raise ArpServerError(
                 code="composite_llm_missing",
                 message="Composite Executor requires an LLM for planning and arg-gen",
                 status_code=503,
             )
         if self._config is None:
+            logger.error("Composite Executor config is not configured")
             raise ArpServerError(
                 code="composite_config_missing",
                 message="Composite Executor configuration is required",
