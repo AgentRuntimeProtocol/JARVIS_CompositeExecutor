@@ -12,7 +12,7 @@ def test_arggen_keeps_nulls_and_validates() -> None:
 
     node_type = NodeType(
         node_type_id="jarvis.core.echo",
-        version="0.3.7",
+        version="0.3.8",
         kind=NodeKind.atomic,
         description="Echo text",
         input_schema={
@@ -44,7 +44,7 @@ def test_arggen_accepts_structured_object_output() -> None:
 
     node_type = NodeType(
         node_type_id="jarvis.core.echo",
-        version="0.3.7",
+        version="0.3.8",
         kind=NodeKind.atomic,
         description="Echo inputs",
         input_schema={
