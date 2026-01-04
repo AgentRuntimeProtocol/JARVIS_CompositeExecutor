@@ -85,7 +85,6 @@ class CompositeAssignmentDriver:
             max_steps=max_steps,
             depth=depth,
             max_depth=max_depth,
-            id_prefix=node_run_id,
         )
 
         if not planner_result.subtasks:
@@ -104,7 +103,12 @@ class CompositeAssignmentDriver:
                 await self._complete_canceled(node_run_id)
                 return
 
-            candidate_set = await self._generate_candidate_set(request, subtask=subtask, goal=goal)
+            candidate_set = await self._generate_candidate_set(
+                request,
+                subtask=subtask,
+                goal=goal,
+                working_context=working_context,
+            )
             if (candidate := choose_candidate(candidate_set)) is None:
                 raise ArpServerError(
                     code="composite_no_candidates",
@@ -168,7 +172,7 @@ class CompositeAssignmentDriver:
                 )
 
             results.append(result)
-            working_context.append(_summarize_node_run(result, subtask_id=subtask.subtask_id))
+            working_context.append(_context_step_entry(result))
             working_context = _bound_context(working_context, window=self._config.context_window)
 
             if result.state != NodeRunState.succeeded:
@@ -180,25 +184,39 @@ class CompositeAssignmentDriver:
             planner_summary=planner_result.summary,
         )
 
-    async def _generate_candidate_set(self, request, *, subtask, goal: str) -> CandidateSet:
-        extensions = _merge_extensions(
+    async def _generate_candidate_set(
+        self,
+        request,
+        *,
+        subtask,
+        goal: str,
+        working_context: list[dict[str, Any]],
+    ) -> CandidateSet:
+        subtask_extensions_dict = _merge_extensions(
             request.extensions,
             {
                 "jarvis.subtask.notes": subtask.notes,
                 "jarvis.root_goal": goal,
             },
         )
-        subtask_extensions = Extensions.model_validate(extensions) if extensions else None
+        subtask_extensions = Extensions.model_validate(subtask_extensions_dict) if subtask_extensions_dict else None
         subtask_spec = SubtaskSpec(
             subtask_id=subtask.subtask_id,
             goal=subtask.goal,
             extensions=subtask_extensions,
         )
+        request_extensions_dict = _merge_extensions(
+            request.extensions,
+            {
+                "jarvis.prior_steps": working_context if working_context else None,
+            },
+        )
+        request_extensions = Extensions.model_validate(request_extensions_dict) if request_extensions_dict else None
         return await self._selection.generate_candidate_set(
             CandidateSetRequest(
                 subtask_spec=subtask_spec,
                 constraints=request.constraints,
-                extensions=request.extensions,
+                extensions=request_extensions,
                 run_context=request.run_context,
             )
         )
@@ -373,17 +391,8 @@ def _constraint_max_depth(constraints: ConstraintEnvelope | None) -> int | None:
 
 
 def _planner_context(context: dict[str, Any], run_context) -> dict[str, Any]:
-    payload = dict(context)
-    if run_context is None:
-        return payload
-    safe = {
-        "tenant_id": run_context.tenant_id,
-        "budgets": run_context.budgets,
-        "policy": run_context.policy,
-        "trace": run_context.trace.model_dump(exclude_none=True) if run_context.trace else None,
-    }
-    payload["run_context"] = {k: v for k, v in safe.items() if v is not None}
-    return payload
+    # Keep LLM prompts focused; avoid leaking internal IDs/trace data.
+    return dict(context)
 
 
 def _arggen_context(
@@ -394,15 +403,11 @@ def _arggen_context(
     run_context,
     candidate_set: CandidateSet,
 ) -> dict[str, Any]:
-    payload: dict[str, Any] = {
+    return {
         "root_goal": root_goal,
         "root_context": root_context,
-        "prior_steps": working_context,
-        "candidate_set_id": candidate_set.candidate_set_id,
+        "previous_steps": working_context,
     }
-    if run_context is not None:
-        payload["run_context"] = _planner_context({}, run_context).get("run_context")
-    return payload
 
 
 def _merge_extensions(base: Extensions | None, additions: dict[str, Any]) -> dict[str, Any]:
@@ -468,6 +473,14 @@ def _summarize_node_run(run: NodeRun, *, subtask_id: str | None = None) -> dict[
     if subtask_id:
         summary["subtask_id"] = subtask_id
     return summary
+
+
+def _context_step_entry(run: NodeRun) -> dict[str, Any]:
+    outputs = run.outputs if run.outputs is not None else {}
+    return {
+        "action": run.node_type_ref.node_type_id,
+        "outputs": outputs,
+    }
 
 
 def _bound_context(entries: list[dict[str, Any]], *, window: int | None) -> list[dict[str, Any]]:

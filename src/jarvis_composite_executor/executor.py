@@ -31,7 +31,7 @@ from .clients import (
 )
 from .config import CompositeConfig
 from .engine import ArgGen, CompositeAssignmentDriver, Planner
-from .utils import now
+from .utils import normalize_base_url, now
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ class CompositeExecutor(BaseCompositeExecutorServer):
             self._run_coordinator_factory(request)
             if self._run_coordinator_factory
             else RunCoordinatorGatewayClient(
-                base_url=str(request.coordinator_endpoint),
+                base_url=normalize_base_url(str(request.coordinator_endpoint.root)),
                 bearer_token=request.assignment_token,
             )
         )

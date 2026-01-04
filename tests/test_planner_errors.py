@@ -29,30 +29,30 @@ class FakeChatModel(ChatModel):
 def test_planner_invalid_limits() -> None:
     planner = Planner(FakeChatModel(parsed={"subtasks": [], "summary": None}))
     with pytest.raises(ArpServerError):
-        asyncio.run(planner.plan(goal="g", context={}, max_steps=0, depth=0, max_depth=1, id_prefix="id"))
+        asyncio.run(planner.plan(goal="g", context={}, max_steps=0, depth=0, max_depth=1))
 
 
 def test_planner_depth_exceeded() -> None:
     planner = Planner(FakeChatModel(parsed={"subtasks": [], "summary": None}))
     with pytest.raises(ArpServerError):
-        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=2, max_depth=2, id_prefix="id"))
+        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=2, max_depth=2))
 
 
 def test_planner_invalid_output() -> None:
     planner = Planner(FakeChatModel(parsed={"summary": None}))
     with pytest.raises(ArpServerError) as excinfo:
-        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=0, max_depth=2, id_prefix="id"))
+        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=0, max_depth=2))
     assert excinfo.value.code == "planner_invalid_output"
 
 
 def test_planner_invalid_subtask() -> None:
     planner = Planner(FakeChatModel(parsed={"subtasks": [{"goal": ""}], "summary": None}))
     with pytest.raises(ArpServerError) as excinfo:
-        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=0, max_depth=2, id_prefix="id"))
+        asyncio.run(planner.plan(goal="g", context={}, max_steps=1, depth=0, max_depth=2))
     assert excinfo.value.code == "planner_invalid_subtask"
 
 
-def test_planner_duplicate_subtask_id() -> None:
+def test_planner_duplicate_subtask_id_is_ignored() -> None:
     planner = Planner(
         FakeChatModel(
             parsed={
@@ -64,6 +64,5 @@ def test_planner_duplicate_subtask_id() -> None:
             }
         )
     )
-    with pytest.raises(ArpServerError) as excinfo:
-        asyncio.run(planner.plan(goal="g", context={}, max_steps=5, depth=0, max_depth=2, id_prefix="id"))
-    assert excinfo.value.code == "planner_duplicate_subtask_id"
+    result = asyncio.run(planner.plan(goal="g", context={}, max_steps=5, depth=0, max_depth=2))
+    assert [subtask.subtask_id for subtask in result.subtasks] == ["S1", "S2"]

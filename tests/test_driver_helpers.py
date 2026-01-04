@@ -62,10 +62,7 @@ def test_planner_context_run_context() -> None:
     )
     payload = driver._planner_context({"foo": "bar"}, run_context)
 
-    assert payload["foo"] == "bar"
-    assert payload["run_context"]["tenant_id"] == "tenant"
-    assert payload["run_context"]["policy"] == {"mode": "test"}
-    assert payload["run_context"]["trace"]["trace_id"] == "trace"
+    assert payload == {"foo": "bar"}
 
 
 def test_arggen_context_and_extensions_merge() -> None:
@@ -86,9 +83,11 @@ def test_arggen_context_and_extensions_merge() -> None:
         run_context=RunContext(tenant_id="tenant"),
         candidate_set=candidate_set,
     )
-    assert context["candidate_set_id"] == "set-1"
-    assert context["prior_steps"] == [{"step": 1}]
-    assert context["run_context"]["tenant_id"] == "tenant"
+    assert context == {
+        "root_goal": "goal",
+        "root_context": {"root": True},
+        "previous_steps": [{"step": 1}],
+    }
 
 
 def test_composite_inputs_and_terminal_state() -> None:

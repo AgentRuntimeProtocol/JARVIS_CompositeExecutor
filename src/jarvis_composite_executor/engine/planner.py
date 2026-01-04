@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,6 +10,9 @@ from arp_llm.types import ChatModel, Message
 from arp_standard_server import ArpServerError
 
 from ..llm_assets import PLANNER_RESPONSE_SCHEMA, PLANNER_SYSTEM_PROMPT
+from ..schema_utils import find_openai_strict_schema_issues
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -40,7 +44,6 @@ class Planner:
         max_steps: int,
         depth: int,
         max_depth: int,
-        id_prefix: str,
     ) -> PlannerResult:
         if max_steps < 1:
             raise ArpServerError(
@@ -64,18 +67,36 @@ class Planner:
                 details={"depth": depth, "max_depth": max_depth},
             )
 
-        payload = {
-            "goal": goal,
-            "context": context,
-            "max_steps": max_steps,
-            "depth": depth,
-            "max_depth": max_depth,
+        context_payload: dict[str, Any] = dict(context)
+        context_payload.pop("run_context", None)
+
+        payload: dict[str, Any] = {
+            "task": {
+                "goal": goal,
+                "context": context_payload,
+            },
+            "limits": {
+                "max_steps": max_steps,
+                "depth": depth,
+                "max_depth": max_depth,
+            },
         }
         messages = [
             Message.system(PLANNER_SYSTEM_PROMPT),
             Message.user(json.dumps(payload, sort_keys=True)),
         ]
 
+        schema_issues = find_openai_strict_schema_issues(PLANNER_RESPONSE_SCHEMA, limit=5)
+        if schema_issues:
+            logger.warning("Planner response schema is not OpenAI-strict (issues=%s)", schema_issues)
+        logger.info(
+            "Planner LLM request (goal_len=%s, max_steps=%s, depth=%s/%s, schema_issues=%s)",
+            len(goal),
+            max_steps,
+            depth,
+            max_depth,
+            len(schema_issues),
+        )
         response = await self._llm.response(messages, response_schema=PLANNER_RESPONSE_SCHEMA)
         if response.parsed is None:
             raise LlmError(code="parse_error", message="Planner response missing parsed output")
@@ -89,7 +110,7 @@ class Planner:
                 status_code=502,
             )
 
-        subtasks = self._normalize_subtasks(raw_subtasks, max_steps=max_steps, id_prefix=id_prefix)
+        subtasks = self._normalize_subtasks(raw_subtasks, max_steps=max_steps)
         summary = parsed.get("summary")
         summary_value = summary if isinstance(summary, str) else None
 
@@ -103,7 +124,7 @@ class Planner:
         )
 
     def _normalize_subtasks(
-        self, raw_subtasks: list[Any], *, max_steps: int, id_prefix: str
+        self, raw_subtasks: list[Any], *, max_steps: int
     ) -> list[PlannedSubtask]:
         normalized: list[PlannedSubtask] = []
         for index, item in enumerate(raw_subtasks):
@@ -116,7 +137,6 @@ class Planner:
                     status_code=502,
                     details={"index": index},
                 )
-            subtask_id = item.get("subtask_id")
             goal = item.get("goal")
             notes = item.get("notes")
             if not isinstance(goal, str) or not goal.strip():
@@ -126,23 +146,8 @@ class Planner:
                     status_code=502,
                     details={"index": index},
                 )
-            if not isinstance(subtask_id, str) or not subtask_id.strip():
-                subtask_id = f"{id_prefix}.{index}"
+            subtask_id = f"S{len(normalized) + 1}"
             note_value = notes if isinstance(notes, str) else None
             normalized.append(PlannedSubtask(subtask_id=subtask_id, goal=goal, notes=note_value))
 
-        _ensure_unique_subtask_ids(normalized)
         return normalized
-
-
-def _ensure_unique_subtask_ids(subtasks: list[PlannedSubtask]) -> None:
-    seen: set[str] = set()
-    for subtask in subtasks:
-        if subtask.subtask_id in seen:
-            raise ArpServerError(
-                code="planner_duplicate_subtask_id",
-                message="Planner produced duplicate subtask_id",
-                status_code=502,
-                details={"subtask_id": subtask.subtask_id},
-            )
-        seen.add(subtask.subtask_id)

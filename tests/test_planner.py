@@ -24,9 +24,8 @@ def test_planner_truncates_and_assigns_ids() -> None:
             max_steps=1,
             depth=0,
             max_depth=2,
-            id_prefix="root",
         )
     )
 
     assert len(result.subtasks) == 1
-    assert result.subtasks[0].subtask_id == "root.0"
+    assert result.subtasks[0].subtask_id == "S1"
